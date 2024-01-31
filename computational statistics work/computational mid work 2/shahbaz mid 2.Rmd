@@ -1,0 +1,318 @@
+---
+title: "Computational Statistics-Mid II"
+author: "Md Shahbaz Alam"
+date: "2023-11-02"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = F,message = F,comment = "  ", fig.width=12, fig.height=8)
+# knitr::opts_chunk$set(fig.width=12, fig.height=8) 
+current_path <- rstudioapi::getSourceEditorContext()$path
+setwd(dirname(current_path))
+library(tidyverse)
+cats <- MASS::cats
+```
+
+\newpage
+### Question 1
+In part (a) we generate 100000 many samples of X using Metropolis-Hastings algorithm.
+
+### a) Metropolis-Hastings Algorithm:
+ 
+```{r, echo=TRUE}
+set.seed(729)
+
+pdf <- function(x){
+  ifelse(0 < x & x < 2 * pi, exp(sin(x)), 0)
+}
+
+num_iter <- 10e5
+X <- numeric(length = num_iter)
+X[1] <- runif(1, 0, 2 * pi) # initial X
+
+for(j in 2:num_iter) {
+  
+  candidate = rnorm(1, mean = X[j-1], sd = 1)
+  prob_acc <- min(1, pdf(candidate)/pdf(X[j-1]))
+  
+  X[j] <- ifelse(prob_acc > runif(1),candidate, X[j-1])
+}
+
+```
+
+\newpage
+### Visualization of the generated data:
+
+```{r, echo = FALSE, include = TRUE, fig.height = 8, fig.width = 6, fig.align = "center"}
+library(ggpubr)
+library(ggrepel)
+trace_mh <-  ggplot() + 
+  geom_line(aes(x = 1:length(X), y = X), col = "black", linewidth = .5) +
+  labs(title = expression(paste("Traceplot of samples of X drawn using Metropolis-Hastings")),
+       x = "Iteration Number",
+       y = "Value") +
+  theme_classic() + 
+  theme(
+    # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+    plot.title = element_text(size = 9, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_blank(),
+    legend.text = element_blank(), legend.position = c(.95, .9),
+    legend.background = element_rect(color = "black", fill= NA, linewidth = 1, linetype= "solid"),
+    panel.border = element_rect(color = "black", fill = NA, size = 1))
+
+mh_hist <- ggplot() +
+  geom_histogram(aes(x = X, y = after_stat(density)), bins = 30, fill = "white", col = "black") + 
+  geom_density(aes( x = X), col = "#003153", lwd = 1) +
+  # geom_line(aes( x = runif(10000, 0, 2 * pi), y = pdf(runif(10000, 0, 2 * pi))), col = "seagreen", lwd = 1) +
+  labs(title = "Histogram with density curve of X",
+       x = "X",
+       y = "Density", color = "Blue") +
+  theme_classic() + 
+  theme(
+    # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+    plot.title = element_text(size= 9, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_blank(), legend.position = "top",
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  )
+
+plot_X <- ggpubr::annotate_figure(ggarrange(trace_mh, mh_hist,  
+                                          common.legend = T, nrow = 2, ncol = 1), 
+                                  top = text_grob("", face = "bold", size = 1)) 
+print(plot_X)
+
+```
+
+\newpage
+
+### b) Self-Normalizing Importance Sampling:
+
+### R-code:
+Here is the R code for estimating the mean of $E(X^2)$ from 100,000 generated sample.
+
+```{r}
+#b: importance sampling
+set.seed(729)
+pdf <- function(x){
+  ifelse(0 < x & x < 2 * pi, exp(sin(x)), 0)
+}
+# Self-normalized importance sampling to estimate E(X^2)
+num_iter <- 10e5
+samples <- numeric(num_iter)
+weights <- numeric(num_iter)
+  
+for (i in 1:num_iter) {
+  # Generate samples from the proposal distribution (uniformly between 0 and 2*pi)
+  sample <- runif(1, min = 0, max = 2 * pi)
+  samples[i] <- sample
+  
+  # Calculate importance weights
+  weights[i] <- pdf(sample) / dunif(sample, min = 0, max = 2 * pi)
+}
+
+# Compute the estimated expectation E(X^2)
+normalized_weights <- weights / sum(weights)
+estimated_expectation <- sum((samples^2) * normalized_weights)
+```
+
+
+### Comparing the mean in part(a) and part(b): 
+
+Both calculation matches
+
+```{r}
+# to match with what we got using M-H
+cat("E(X^2) using sample of X from Metropolis-Hastings: ",mean(X^2),
+    "\nEstimated E(X^2) using self-normalized importance sampling:", estimated_expectation)
+```
+
+\newpage
+### Question 2: Probit Model using the Cats Data from MASS package
+
+#### Probit Model:
+In the Probit model, the dependent variable $Y_i$ takes binary values, either 0 or 1. The covariates $X_i$, which are real-valued $p$-dimensional. In the Probit model, the probability of $Y_i$ being equal to 1 is expressed as $P(Y_i = 1) = \Phi(\beta^TX_i)$. In other words, we can say that $Y_i$ follows a Bernoulli distribution with the probability $\Phi(\beta^TX_i)$, where $\Phi$ represents the cumulative distribution function of the standard normal distribution.
+
+
+So, $P(Y_i)=\Phi(\beta^TX_i)^{Y_i}(1-\Phi(\beta^TX_i))^{1-Y_i}$.  
+
+Since this may appear quite intricate, we introduce an auxiliary variable, denoted as $z_i$, defined as $z_i = \beta^T X_i + \epsilon_i$, where $\epsilon_i$ follows a standard normal distribution, i.e., $\epsilon_i \sim N(0,1)$. This variable connects the relationship between $Y_i$ and $\beta^T X_i$ in a way that $Y_i$ is defined as the indicator function of whether $z_i$ is greater than 0. In the augmented approach,
+
+
+\begin{equation}
+\begin{aligned}
+  P(Y_i=1|X,\beta) &= P(z_i \ge 0|X,\beta)\\
+                   &= P(\beta^T X_i+\epsilon_i \ge 0|X,\beta)\\
+                   &= P(-\epsilon_i \le \beta^T X_i|X,\beta)\\
+                   &= \Phi(\beta^T X_i)\\
+\end{aligned}
+\end{equation}
+
+Hence we can say that the model is identical under the augmentation of the extra z variable.
+
+### Full Conditional Distribution:
+$$
+f(\beta|Z,X,Y) \sim N(\mu_\beta=(X^TX)^{-1}X^TZ,\Sigma_\beta=(X^TX)^{-1})
+$$
+
+and, 
+
+\begin{equation*}
+\begin{aligned}
+z_i\sim TN(X_i^T\beta,-\infty,0) ~~ if ~~Y_i = 0\\
+z_i\sim TN(X_i^T\beta,0,+\infty) ~~ if ~~Y_i = 1\\
+\end{aligned}
+\end{equation*}
+
+Density function for trucked normal distribution is:
+$$
+f(k,a,b)=\frac{1}{\sigma_k}*\frac{N(0,1)}{\Phi(\frac{b-\mu_k}{\sigma_k})-\Phi(\frac{a-\mu_k}{\sigma_k})}
+$$
+
+
+
+
+\newpage
+### Algorithm:
+Gibbs Sampler for generate Beta coefficients:
+
+  1. Initialize the Beta coefficients to zero. That is, $\beta_{int}^{(0)}=0, \beta_{pur\_yes}^{(0)}=0, \beta_{gen\_male}^{(0)}=0,\beta_{inc}^{(0)}=0$ Here the superscript means the number of iteration. Since we are initializing so the iteration number is 0 in that case.
+
+
+  2. Generate: 
+    
+
+\begin{equation}
+\begin{aligned}
+&\\
+  2.1)~~~~&Z^{(i)}|Y=
+  \begin{pmatrix}
+  z_1^{(i)}|y_1\\
+  z_2^{(i)}|y_2\\
+  \vdots\\
+  z_n^{(i)}|y_n\\
+  \end{pmatrix}
+  =
+  \begin{cases}
+  z_i\sim TN(X_i^T\beta^{(i-1)},-\infty,0) ~~ if ~~Y_i = 0\\
+  z_i\sim TN(X_i^T\beta^{(i-1)},0,+\infty) ~~ if ~~Y_i = 1\\
+  \end{cases}\\
+  2.2)~~~~&\beta^{(i)} \sim N(\mu_\beta=(X^TX)^{-1}X^TZ^{(i)},\Sigma_\beta=(X^TX)^{-1})\\
+\end{aligned}
+\end{equation}
+
+
+3. Redo 2.1 and 2.2 for i = 1 to i = N times.
+
+
+### Data Preparation:
+We have one response variable (Sex{F, M}) and two independent variables (Bwt, Hwt). A string cannot be used as a model's input. As a result, we must transform them into numerical variables. Now if we look into our data, it will show binary coding of response variable Sex (1 = Male, 0 = Female).
+ 
+```{r}
+library(dplyr)
+
+df <- cats %>% 
+  mutate(Sex = if_else(Sex == "M", 1, 0))
+
+# preperaing design matrix
+X <- df %>% 
+  mutate(intercept = 1,.after = Sex) %>% 
+  select(2:4) %>% 
+  as.matrix()
+
+y <- df$Sex
+pander::pander(as_tibble(df[46:49, ]))
+```
+
+\newpage
+### Parameter Generation:
+
+For the data generation we need to generate samples from two distributions one is truncated normal distribution for which we are using the function `rnormTrunc` from the package `EnvStats`and the another one is multivariate normal for which we are using the package `MASS`.
+
+```{r echo=TRUE}
+set.seed(729)
+# Set the number of iterations
+num_iter <- 10e5
+
+# Initialize a matrix for storing beta values
+# first row of beta is our initial choice
+beta <- matrix(0, nrow = num_iter, ncol = ncol(X)) 
+colnames(beta) <- colnames(X)
+x_tran_x_inv <- solve(t(X) %*% X)
+mu_z_part <- x_tran_x_inv %*% t(X)
+len_y <- length(y)
+
+# Calculate truncated normal random values
+trunc_min <- if_else(y == 1, 0, -Inf)
+trunc_max <- if_else(y == 1, Inf, 0)
+
+for (i in 2:num_iter) {
+  
+  z <- EnvStats::rnormTrunc(n = len_y, mean = X %*% beta[i-1, ], 
+                            sd = 1, min = trunc_min, max = trunc_max)
+  
+  # Update beta using multivariate normal sampling
+  beta[i, ] <- MASS::mvrnorm(n = 1, mu = mu_z_part %*% z, Sigma = x_tran_x_inv)
+}
+
+# Remove the initial row of zeros
+beta <- beta[-1, ]
+```
+
+\newpage
+
+
+### Beta Estimation: 
+
+Combinig results from both classical and Bayesian approach
+
+```{r}
+lm_probit <- glm(Sex ~ ., data = df, family="binomial"(link = "probit"))
+coef_mat <- rbind(lm_probit$coefficients,colMeans(beta))
+rownames(coef_mat) <- c("Classical", "Bayesian")
+coef_mat
+```
+
+
+The estimates of beta coefficient in the Probit model using both the classical and Bayesian approaches appears to be quite similar.
+
+### Estimate of Variance-Covariance matrix:
+
+```{r}
+round(abs(vcov(lm_probit) - cov(beta)), 4)
+```
+
+The presented table displays the absolute difference seen between the estimated variance-covariance term in the conventional estimation approach and the Bayesian estimation approach. As we can see, the differences are negligible.
+
+\newpage
+### Trace Plot:
+
+To avoid processing delay, displaying traceplot using only first 4000 iterations.
+```{r, echo = FALSE, fig.align = "center"}
+as_tibble(beta) %>% 
+  slice_head(n = 4e3) %>%
+  mutate(id = row_number(),.before = everything()) %>% 
+  pivot_longer(-id) %>% 
+  arrange(name,id) %>% 
+  group_by(name) %>% 
+  mutate(cum_mean = cummean(value)) %>% 
+  ggplot(aes(id, value)) +
+  geom_point(alpha = .2,size = .2,col= "seagreen4") +
+  geom_line(alpha = .3,size = .1) +
+  geom_line(aes(y = cum_mean),col = "red3",alpha = .8) +
+  facet_wrap(~name,scales = "free_y") +
+  scale_x_log10() +
+  labs(title = latex2exp::TeX(r'(Traceplot of the Coefficients $\beta's$)'),
+       x = "# of Iteration in Log Scale") +
+    theme_classic() + 
+  theme(
+    # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+    plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_text(size = 9), legend.position = "top",
+    panel.border = element_rect(color = "black", fill = NA, linewidth = .7)
+  )
+```
+
+The red line represents the mean or average of the generated samples for each coefficient. It indicates that the coefficients are exhibiting a convergent behavior.
