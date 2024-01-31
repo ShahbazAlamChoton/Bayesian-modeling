@@ -1,0 +1,221 @@
+---
+title: "STAT 5443-Computational Statistics-Midterm hw"
+author: "Md Shahbaz Alam"
+date: "2023-09-28"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+current_path <- rstudioapi::getSourceEditorContext()$path
+setwd(dirname(current_path))
+library(tidyverse)
+set.seed(729)
+```
+
+\newpage
+## Question 2: Inverse transform Sampling
+
+```{r}
+#------------- Problem 2 (2): Inverse Transform Sampling
+# Defining the inverse CDF: 2 * u^(1/4)
+inverse_cdf <- function(u) {
+  return(2 * u ^(1/4))
+}
+
+# Generate 10,000 random samples using ITS
+set.seed(729) 
+n_samples <- 10000
+u <- runif(n = n_samples, 0, 1)
+random_samples <- inverse_cdf(u)
+hist(random_samples,probability = T)
+curve(expr = .25*(x^3),from = 0,to = 2,add = T, col="dodgerblue4")
+```
+
+
+<!-- ```{r echo = FALSE, include=TRUE} -->
+<!-- linedf <- data.frame(x = seq(from = 0, to = 2, length.out = 100)) %>%  -->
+<!--   mutate(pdf = .25 * x^3) -->
+<!-- # after_stat(density) -->
+<!-- p2 <- ggplot() + -->
+<!--   geom_histogram(aes(x = random_samples, y = after_stat(density)), fill = "white", col = "#003153") +  -->
+<!--   geom_line(data = linedf, aes(x = x, y = pdf), color = "dodgerblue4", lwd = 1.1) + -->
+<!--   scale_x_continuous(breaks = seq(0, 2, by = .5)) + -->
+<!--   # geom_density(aes( x = rnorm(5000, 20, 10000)), col = "seagreen", lwd = 1) + -->
+<!--   labs(title = expression(paste("Histogram of Samples using Inverse Transform Sampling with Density Line for : ", f(x) == frac(1, 4) ~ x^3)), -->
+<!--        x = "", -->
+<!--        y = "Density", color = "Blue") + -->
+<!--   theme_classic() +  -->
+<!--   theme( -->
+<!--     # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5), -->
+<!--     plot.title = element_text(size = 9, face = "bold", color = 'black', hjust = 0.5), -->
+<!--     axis.title = element_text(size = 9, face="bold"), -->
+<!--     legend.title = element_blank(), legend.position = "top", -->
+<!--     panel.border = element_rect(color = "black", fill = NA, linewidth = 1) -->
+<!--   ) -->
+<!-- print(p2) -->
+<!-- ``` -->
+
+
+\newpage
+## Question 3:
+
+The marginal density X and Y are symmetric function, so their density looks similar.
+```{r}
+marginal_pdf <- function(v) {
+  
+  .25 * (v + (3/(2*sqrt(2))) * sqrt(v) )
+}
+curve(marginal_pdf, from = 0, to = 2, col="dodgerblue4")
+```
+
+
+<!-- ```{r echo=FALSE, include=TRUE} -->
+
+<!-- marginal_density <- data.frame(x = seq(from = 0, to = 2, length.out = 1000)) %>%  -->
+<!--   mutate(pdf = marginal_pdf(x)) -->
+<!-- # after_stat(density) -->
+<!-- marginal_plot3 <- ggplot() + -->
+<!--   geom_line(data = marginal_density, aes(x = x, y = pdf), color = "dodgerblue4", lwd = 1.1) + -->
+<!--   # geom_density(aes( x = rnorm(5000, 20, 10000)), col = "seagreen", lwd = 1) + -->
+<!--   labs(title = "Marginal Density of X or Y , Both Density are Similar", -->
+<!--        x = "", -->
+<!--        y = "Marginal Density", color = "Blue") + -->
+<!--   theme_classic() +  -->
+<!--   theme( -->
+<!--     # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5), -->
+<!--     plot.title = element_text(size = 9, face = "bold", color = 'black', hjust = 0.5), -->
+<!--     axis.title = element_text(size = 9, face="bold"), -->
+<!--     legend.title = element_blank(), legend.position = "top", -->
+<!--     panel.border = element_rect(color = "black", fill = NA, linewidth = 1) -->
+<!--   ) -->
+<!-- print(marginal_plot3) -->
+<!-- ``` -->
+
+
+\newpage
+## Gibss Sampler:
+
+```{r echo = TRUE}
+set.seed(729)
+conditional_distribution <- function(x, y) {
+  c_x <- (3 / (4 * sqrt(2))) * (y + (3 / (2 * sqrt(2))) * sqrt(y))^-1
+  return(c_x*(y * sqrt(x) + x * sqrt(y)))
+}
+
+rejection_sampling <- function(y) {
+  
+  generate = TRUE
+  
+  while(generate) {
+    
+    z <- runif(1, min = 0,max = 2)
+    u <- runif(1, min = 0, max = 1)
+    
+    if(u < conditional_distribution(x = z, y = y))
+      generate = FALSE
+    
+  }
+  return(z)
+}
+
+# Gibbs sampling
+x = y = 1
+
+for(i in 2:10000) {
+  x[i] = rejection_sampling(y[i-1])
+  y[i] = rejection_sampling(x[i])
+}
+```
+
+\newpage
+As we can see the pdf of marginal X and the histogram of X using the Gibbs sampling
+has matched. Thus we can say, the algorithm works well.
+```{r}
+hist(x, probability = T)
+curve(marginal_pdf,from = 0,to = 2, add = T, col="dodgerblue4")
+```
+
+<!-- ```{r echo = FALSE, include=TRUE} -->
+<!-- # marginal_density <- data.frame(x = seq(from = 0, to = 2, length.out = 1000)) %>%  -->
+<!-- #   mutate(pdf = marginal_pdf(x)) -->
+<!-- # after_stat(density) -->
+<!-- x_gibbs <- ggplot() + -->
+<!--   geom_histogram(aes(x = x, y = after_stat(density)), bins = 30, fill = "white", col = "#003153") +  -->
+<!--   geom_line(data = marginal_density, aes(x = x, y = pdf), color = "dodgerblue4", lwd = 1.1) + -->
+<!--   # geom_density(aes( x = rnorm(5000, 20, 10000)), col = "seagreen", lwd = 1) + -->
+<!--   labs(title = "Histogram of X using Gibbs Sampling with Marginal Density Line", -->
+<!--        x = "Gibbs Sample of X", -->
+<!--        y = "Density", color = "Blue") + -->
+<!--   theme_classic() +  -->
+<!--   theme( -->
+<!--     # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5), -->
+<!--     plot.title = element_text(size = 9, face = "bold", color = 'black', hjust = 0.5), -->
+<!--     axis.title = element_text(size = 9, face="bold"), -->
+<!--     legend.title = element_blank(), legend.position = "top", -->
+<!--     panel.border = element_rect(color = "black", fill = NA, linewidth = 1) -->
+<!--   ) -->
+<!-- print(x_gibbs) -->
+
+<!-- ``` -->
+
+\newpage
+As we can see the pdf of marginal Y and the histogram of Y using the Gibbs sampling 
+has matched. Thus we can say, the algorithm works well.
+
+```{r}
+hist(y, probability = T)
+curve(marginal_pdf, from = 0, to = 2, add = T, col="dodgerblue4")
+```
+
+<!-- ```{r echo = FALSE, include=TRUE} -->
+<!-- # marginal_density <- data.frame(x = seq(from = 0, to = 2, length.out = 1000)) %>%  -->
+<!-- #   mutate(pdf = marginal_pdf(x)) -->
+<!-- # after_stat(density) -->
+<!-- y_gibbs <- ggplot() + -->
+<!--   geom_histogram(aes(x = y, y = after_stat(density)), bins = 30, fill = "white", col = "#003153") +  -->
+<!--   geom_line(data = marginal_density, aes(x = x, y = pdf), color = "dodgerblue4", lwd = 1.1) + -->
+<!--   labs(title = "Histogram of Y using Gibbs Sampling with Marginal Density Line", -->
+<!--        x = "Gibbs Sample of Y", -->
+<!--        y = "Density", color = "Blue") + -->
+<!--   theme_classic() +  -->
+<!--   theme( -->
+<!--     plot.title = element_text(size = 9, face = "bold", color = 'black', hjust = 0.5), -->
+<!--     axis.title = element_text(size = 9, face="bold"), -->
+<!--     legend.title = element_blank(), legend.position = "top", -->
+<!--     panel.border = element_rect(color = "black", fill = NA, linewidth = 1) -->
+<!--   ) -->
+<!-- print(y_gibbs) -->
+
+<!-- ``` -->
+
+
+\newpage
+```{r}
+x <- c(1.5, 2.6, 1.0, 3.0, 2.8)
+n <- length(x)
+ss <- sum((x - 2)^2)
+n_samples <- 10000
+ig_sample <- 1/rgamma(n_samples, shape = n/2, rate = ss/2)
+```
+
+
+```{r echo = FALSE, include=TRUE}
+ig_histogram <- ggplot() +
+  geom_histogram(aes(x = ig_sample, y = after_stat(density)), bins = 80, fill = "white", col = "#003153") + 
+  # geom_line(data = marginal_density, aes(x = x, y = pdf), color = "dodgerblue4", lwd = 1.1) +
+  labs(title = expression(paste("Histogram of Conditional Posterior of ", sigma^2)),
+       x = "Inverse Gamma Sample",
+       y = "Density", color = "Blue") + 
+  theme_classic() + 
+  theme(
+    plot.title = element_text(size = 9, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_blank(), legend.position = "top",
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  )
+print(ig_histogram)
+
+```
+
