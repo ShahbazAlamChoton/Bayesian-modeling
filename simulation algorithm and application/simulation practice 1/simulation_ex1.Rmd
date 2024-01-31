@@ -1,0 +1,888 @@
+---
+title: "`Simulation Exercise with Solution`"
+author: "`Md Shahbaz Alam`"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F,comment = "  ", warning = FALSE, fig.width=13, fig.height=17)
+# knitr::opts_chunk$set() 
+rm(list = ls())
+library(tidyverse)
+library(ggpubr)
+set.seed(729)
+```
+
+
+### Solution Q1:
+*Monte-Carlo* approximation for the integral
+$$\int_{0}^{\infty}\frac{\theta^6\exp^{-\theta^2 - \theta^3 - 2\theta}}{1 + 3\theta^2}d\theta$$
+We aim to write this integral as $\int f(\theta) g(\theta)$ where $g(\theta)$ is a known density that is easy to simulate from. Then, we draw a large number of samples from $g(\theta)$, evaluate $f(\theta)$ for each one of those samples and take the mean, which will be the *Monte-Carlo* approximation for the above mentioned integral.
+\
+Approach 1: We use $Gamma(7, 2)$ as $g(\theta)$. 
+
+Now, 
+$$g(\theta) = \frac{2^7}{\Gamma(7)} \exp^{-2\theta}\theta^{7-1}$$
+Thus our $f(\theta)$ will become,
+$$f(\theta) = \frac{\Gamma(7)}{2^7} \frac{\exp^{-\theta^2 - \theta^3}}{1 + 3\theta^2}d\theta$$  
+
+
+Approach 2: We use $exp(2)$ as $g(\theta)$. 
+
+Now, $$g(\theta) = 2e^{-2\theta}$$
+Thus our $f(\theta)$ will become,
+$$f(\theta) = \frac{1}{2} \frac{\theta^6\exp^{-\theta^2 - \theta^3}}{1 + 3\theta^2}d\theta$$  
+
+
+```{r include = FALSE, echo=FALSE}
+# -------------- Question 1: Monte Carlo simulation to estimate an integral in two different ways:
+
+# approach 1: Gamma(7,2) as g(x). So f(x) will be that expression
+
+f1x <- function(x){
+  expression <- (gamma(7)/2^7)*(exp(-x^2-x^3)/(1 + 3 * x^2))
+  return(expression)
+}
+
+# approach 2: exp(2) as g(x). So f(x) will be that expression
+
+f2x <- function(x){
+  expression <- (.5 * x^6 * exp(-x^2-x^3))/ (1+3*x^2)
+  return(expression)
+}
+
+# Exact integral value:
+exact_val <- integrate(f = function(x) ((x^6*exp(-x^2-x^3-2*x))/(1 + 3 * x^2)), lower = 0, upper = Inf)
+print(exact_val)
+
+# Approach 1: f(x) = (gamma(7)/2^7)*(exp(-x^2-x^3)/(1 + 3 * x^2)), g(x) = Gamma(7, 2)
+approach_1 <- function(num_points) {
+  samples <- rgamma(num_points, shape = 7, rate = 2)
+  cal_val <- f1x(samples)
+  integral_approximation <- mean(cal_val)
+  return(integral_approximation)
+}
+
+# Approach 2: f(x) = (.5 * x^6 * exp(-x^2-x^3))/ (1+3x^2), g(x) = exp(2)
+approach_2 <- function(num_points) {
+  samples <- rexp(num_points, rate = 2)
+  cal_val <- f2x(samples)
+  integral_approximation <- mean(cal_val)
+  return(integral_approximation)
+}
+
+# number of random points to generate
+num_points <- 100000
+
+# Computing integral approximation using both approach
+approximation_1 <- approach_1(num_points) # Gamma(7,2)
+approximation_2 <- approach_2(num_points) # Exp(2)
+
+
+```
+
+
+```{r include = TRUE}
+
+# Printing results
+options(scipen=999) 
+cat("Output: 
+    \n\tActual result: ", round(exact_val$value, 8), 
+    "\n\tMonte-Carlo approximation using Gamma(7, 2) PDF: ", round(approximation_1, 8), 
+    "\n\tMonte-Carlo approximation using Exponential(2) PDF:", round(approximation_2, 8), "\n")
+
+```
+
+\newpage
+### Solution Q2:
+  
+*Monte-Carlo* approximation for the integral
+$$\int_{1.5}^{6}\frac{\log\theta}{2 + \theta^2}d\theta$$ 
+
+As per procedure mentioned in *solution-1*, we use $unif(1.5, 6)$ as $g(\theta)$. Now, 
+$$g(\theta) = \frac{1}{6-1.5} = \frac{1}{4.5}$$
+Thus our $f(\theta)$ will become, 
+$$f(\theta) = 4.5 \space\frac{\log(\theta)}{2 + \theta^2}$$
+
+```{r include = FALSE, echo=FALSE}
+# -------------- Question 2: Monte Carlo method for a integral:
+
+# approach : Unif(1.5, 6) as g(x). So f(x) will be that following expression
+fx <- function(x) {
+  expression <- (4.5 * log(x))/(2 + x^2)
+  return(expression)
+}
+
+# Exact integral value:
+exact_val <- integrate(f = function(x) log(x)/(2 + x^2), lower = 1.5, upper = 6)
+print(exact_val)
+
+# Approach: f(x) = (4.5 * log(x))/(2 + x^2), g(x) = unif(1.5, 6)
+mc_app <- function(num_points) {
+  samples <- runif(num_points, min = 1.5, max = 6)
+  cal_val <- fx(samples)
+  integral_approximation <- mean(cal_val)
+  return(integral_approximation)
+}
+
+```
+
+
+```{r include = TRUE}
+# Computing integral approximation
+num_points <- 100000
+approximate_val<- mc_app(num_points) # unif(1.5, 6)
+options(scipen=999)
+cat("Output: 
+    \n\tActual result: ", round(exact_val$value, 8), 
+    "\n\tMonte-Carlo approximation using Uniform(1.5, 6) PDF:", round(approximate_val, 8), "\n")
+```
+
+
+## Solution 3:
+Metropolis-Hastings Simulation to draw sample where target density is:
+$$\theta \sim Gamma(2,\space 4)$$
+
+```{r include = FALSE, echo = FALSE}
+# Q3: Metrpolis_hastings Algorthm
+alpha <- 2; beta <- 4
+target_density <- function(x){
+  return(dgamma(x, shape = alpha, rate = beta))
+}
+
+true_mean <- alpha/beta
+mh_alg <- function( initial_theta = 5, num_steps, burn_in, proposal_variance){
+  
+  set.seed(729)
+  theta <- numeric(num_steps)
+  theta[1] <- initial_theta
+  
+  accepted_proposal <- 0
+  
+  for(i in 2 : num_steps){
+    # propose a theta value from Normal density proposal
+    candidate <- rnorm(1, mean = theta[i-1], sd = sqrt(proposal_variance))
+    
+    # Target ratio: decides whether we accept the proposed theta as current
+    acceptance_ratio <- min(1, target_density(candidate)/target_density(theta[i-1])) # markov kernel cancel out
+    
+    unif_value <- runif(1)
+    
+    if(unif_value < acceptance_ratio){
+      
+      # accept proposed theta
+      theta[i] <- candidate
+      accepted_proposal <- accepted_proposal + 1
+      
+    } else {
+      
+      # reject proposal and take immediate previous theta as current theta
+      theta[i] <- theta[i - 1]
+    }
+    
+  }
+  
+  theta_aburn <- theta[(burn_in + 1):num_steps] # samples after burn_in
+  
+  # require to decide proposal variance
+  acceptance_rate <- accepted_proposal/num_steps
+  
+  return(list(theta = theta, theta_aburn = theta_aburn, acceptance_rate = acceptance_rate))
+}
+
+#  using proposal variance = 0.1
+approach_1 <- mh_alg(num_steps = 50000, burn_in = 10000, proposal_variance = 0.1)
+
+#  using proposal variance = 2
+approach_2 <- mh_alg(num_steps = 50000, burn_in = 10000, proposal_variance = 2)
+
+# Calculate the estimated mean for approach 1
+estimated_mean_1 <- mean(approach_1$theta_aburn)
+
+# Calculate the estimated mean for approach 2
+estimated_mean_2 <- mean(approach_2$theta_aburn)
+
+
+```
+
+From target distribution True mean is 0.5
+
+* Approach 1: Normal distribution as a proposal with variance = 0.1 and $\theta_0 = 5$
+
+```{r include = TRUE}
+
+# Print the results
+cat("\tAcceptance Rate:", approach_1$acceptance_rate, 
+    "\n\tEstimated Mean:", estimated_mean_1, 
+    "\n\tDifference from True Mean:", abs(estimated_mean_1 - true_mean), "\n")
+
+```
+
+\newpage
+* Approach 1: Normal distribution as a proposal with variance = 0.1 and $\theta_0 = 5$
+
+```{r include=FALSE, echo=FALSE}
+
+mh_df1 <- data.frame(theta = approach_1$theta) %>% 
+  mutate(index = seq_along(1: nrow(.)),
+         burn_in = if_else(index <= 10000, "Burn in", "Accepted"))
+
+col_pal <- c("#003153", "red3")
+
+prop_plot1 <- ggplot() + 
+    geom_density(aes( x = rgamma(40000, 2, 4)), col = "#003153", lwd = 1) + 
+    geom_density(aes( x = rnorm(40000, 5, sqrt(0.1))), col = "red3", lwd = 1) +
+    
+    labs(title = expression(paste("Actual density ", Gamma(2, 4), " vs proposal ", N(theta = 5, 0.1))),
+       x = expression(theta),
+       y =  "Density") +
+    theme_classic() + 
+    theme(
+      # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+      plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+      axis.title = element_text(size = 9, face="bold"),
+      legend.title = element_blank(),
+      legend.text = element_text(size = 9, face = "bold"), legend.position = c(.95, .9),
+      legend.background = element_rect(color = "black", fill= NA, size = 1, linetype= "solid"),
+      panel.border = element_rect(color = "black", fill = NA, linewidth = 1)) +
+      scale_color_manual(values = col_pal)
+
+
+
+iteration_plot1 <- ggplot(data = mh_df1) + 
+    geom_line(aes(x = index, y = theta, color = burn_in)) +
+    labs(title = "Metropolis Hastings using Normal proposal with starting point 5",
+         x = "Iteration Number",
+         y = expression(theta)) +
+    theme_classic() + 
+    theme(
+      # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+      plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+      axis.title = element_text(size = 9, face="bold"),
+      legend.title = element_blank(),
+      legend.text = element_text(size = 9, face = "bold"), legend.position = c(.95, .9),
+      legend.background = element_rect(color = "black", fill= NA, size = 1, linetype= "solid"),
+      panel.border = element_rect(color = "black", fill = NA, size = 1)) +
+    scale_color_manual(values = col_pal)
+
+zoomed_plot1 <-  mh_df1 %>% 
+  filter(9950< index & index <10050) %>% 
+  ggplot(data = .) + 
+  geom_line(aes(x = index, y = theta, color = burn_in)) +
+  labs(title = "100 iteration Zoomed in ",
+       x = "Iteration Number",
+       y = expression(theta)) +
+  theme_classic() + 
+    theme(
+      # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+      plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+      axis.title = element_text(size = 9, face="bold"),
+      legend.title = element_blank(),
+      legend.text = element_text(size = 9, face = "bold"), legend.position = c(.95, .9),
+      legend.background = element_rect(color = "black", fill= NA, size = 1, linetype= "solid"),
+      panel.border = element_rect(color = "black", fill = NA, size = 1)) +
+    scale_color_manual(values = col_pal)
+  
+
+plot_mh1 <- ggplot(data = filter(mh_df1, burn_in == "Accepted")) +
+    geom_histogram(aes(x = theta, y = after_stat(density)), bins = 100, fill = "white", col = "#003153") + 
+    geom_density(aes( x = rgamma(40000, 2, 4)), col = "seagreen", lwd = 1) +
+    labs(title = expression(paste("Histogram of simulated sample using M-H algorithm from ", Gamma(2, 4)), " density"),
+         x = expression(theta),
+         y = "Density", color = "Blue") +
+    theme_classic() + 
+    theme(
+      # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+      plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+      axis.title = element_text(size = 9, face="bold"),
+      legend.title = element_blank(), legend.position = "top",
+      panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+    )
+
+
+library(ggpubr)
+
+# mh_it1<- ggarrange(iteration_plot1, zoomed_plot1,  
+#                              common.legend = TRUE, nrow = 2, ncol = 1)
+
+# pmh_it1<- annotate_figure( mh_it1, top = text_grob(expression(paste0("50000 iteration using M-H algorithm to sample from ", gamma(2,4))), color = "#0d233a", face = "bold", size = 14))
+
+mh_d1 <- ggarrange(iteration_plot1, zoomed_plot1, prop_plot1, plot_mh1,  
+                             common.legend = FALSE, nrow = 4, ncol = 1)
+
+# pmh_d1<- annotate_figure( mh_d1, top = text_grob("Simulated draws from gamma(2,4) using M-H algorithm", color = "#0d233a", face = "bold", size = 10))
+
+```
+
+```{r include=TRUE}
+
+print(mh_d1)
+
+
+```
+
+\newpage
+* Approach 2: Normal distribution as a proposal with variance = 2 and $\theta_0 = 5$
+
+```{r include=FALSE, echo=FALSE}
+mh_df2 <- data.frame(theta = approach_2$theta) %>% 
+  mutate(index = seq_along(1: nrow(.)),
+         burn_in = if_else(index <= 10000, "Burn in", "Accepted"))
+
+prop_plot2 <- ggplot() + 
+  geom_density(aes( x = rgamma(40000, 2, 4)), col = "#003153", lwd = 1) + 
+  geom_density(aes( x = rnorm(40000, 5, sqrt(2))), col = "red3", lwd = 1) +
+  
+  labs(title = expression(paste("Actual density ", Gamma(2, 4), " vs proposal ", N(theta = 5, 2.0))),
+       x = expression(theta),
+       y =  "Density") +
+  theme_classic() + 
+  theme(
+    # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+    plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 9, face = "bold"), legend.position = c(.95, .9),
+    legend.background = element_rect(color = "black", fill= NA, size = 1, linetype= "solid"),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)) +
+  scale_color_manual(values = col_pal)
+
+
+
+iteration_plot2 <- ggplot(data = mh_df2) + 
+  geom_line(aes(x = index, y = theta, color = burn_in)) +
+  labs(title = "Metropolis Hastings using Normal proposal with starting point 5",
+       x = "Iteration Number",
+       y = expression(theta)) +
+  theme_classic() + 
+  theme(
+    # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+    plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 9, face = "bold"), legend.position = c(.95, .9),
+    legend.background = element_rect(color = "black", fill= NA, size = 1, linetype= "solid"),
+    panel.border = element_rect(color = "black", fill = NA, size = 1)) +
+  scale_color_manual(values = col_pal)
+
+zoomed_plot2 <-  mh_df2 %>% 
+  filter(9950< index & index <10050) %>% 
+  ggplot(data = .) + 
+  geom_line(aes(x = index, y = theta, color = burn_in)) +
+  labs(title = "100 iteration Zoomed in ",
+       x = "Iteration Number",
+       y = expression(theta)) +
+  theme_classic() + 
+  theme(
+    # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+    plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 9, face = "bold"), legend.position = "op",
+    legend.background = element_rect(color = "black", fill= NA, size = 1, linetype= "solid"),
+    panel.border = element_rect(color = "black", fill = NA, size = 1)) +
+  scale_color_manual(values = col_pal)
+
+
+plot_mh2 <- ggplot(data = filter(mh_df2, burn_in == "Accepted")) +
+  geom_histogram(aes(x = theta, y= after_stat(density)), bins = 100, fill = "white", col = "#003153") + 
+  geom_density(aes( x = rgamma(40000, 2, 4)), col = "seagreen", lwd = 1) +
+  labs(title = expression(paste("Histogram of simulated sample using M-H algorithm from ", Gamma(2, 4)), " density"),
+       x = expression(theta),
+       y = "Density", color = "Blue") +
+  theme_classic() + 
+  theme(
+    # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+    plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_blank(), legend.position = "top",
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  )
+
+
+library(ggpubr)
+
+# mh_it2<- ggarrange(iteration_plot2, zoomed_plot2,  
+#                    common.legend = TRUE, nrow = 2, ncol = 1)
+# 
+# pmh_it2<- annotate_figure( mh_it2, top = text_grob(expression(paste0("50000 iteration using M-H algorithm to sample from ", gamma(2,4))), color = "#0d233a", face = "bold", size = 14))
+
+mh_d2 <- ggarrange(iteration_plot2, zoomed_plot2, prop_plot2, plot_mh2,  
+                   common.legend = FALSE, nrow = 4, ncol = 1)
+
+# pmh_d2<- annotate_figure( mh_d2, top = text_grob("Simulated draws from gamma(2,4) using M-H algorithm", color = "#0d233a", face = "bold", size = 10))
+```
+
+```{r include=TRUE}
+
+# print(mh_it2)
+print(mh_d2)
+
+```
+
+\newpage
+
+* Approach 2: Normal distribution as a proposal with variance = 2 and $\theta_0 = 5$
+```{r include = TRUE}
+
+cat("\tAcceptance Rate:", approach_2$acceptance_rate, 
+    "\n\tEstimated Mean:", estimated_mean_2, 
+    "\n\tDifference from True Mean:", abs(estimated_mean_2 - true_mean))
+```
+## Solution 5:
+Metropolis-Hastings Simulation to draw samples from density:
+$$\theta \sim Gamma(2,\space 4)$$
+```{r include=FALSE, echo=FALSE}
+
+# mh_normal_df 
+#  Q5: lognormal proposal
+alpha <- 2; beta <- 4
+target_density <- function(x){
+  return(dgamma(x, shape = alpha, rate = beta))
+}
+
+true_mean <- alpha/beta
+mh_alg_lnorm <- function( initial_theta = 5, num_steps, burn_in, proposal_variance){
+  
+  set.seed(729)
+  theta <- numeric(num_steps)
+  theta[1] <- initial_theta
+  
+  accepted_proposal <- 0
+  
+  for(i in 2 : num_steps){
+    # propose a theta value from Normal density proposal
+    candidate <- rlnorm(1, meanlog = log(theta[i-1]), sdlog = sqrt(proposal_variance))
+    
+    # Target ratio: decides whether we accept the proposed theta as current
+    acceptance_ratio <- min(1, (target_density(candidate)/target_density(theta[i-1]))*(candidate/theta[i-1])) # markov kernel
+    
+    unif_value <- runif(1)
+    
+    if(unif_value < acceptance_ratio){
+      
+      # accept proposed theta
+      theta[i] <- candidate
+      accepted_proposal <- accepted_proposal + 1
+      
+    } else {
+      
+      # reject proposal and take immediate previous theta as current theta
+      theta[i] <- theta[i - 1]
+    }
+    
+  }
+  
+  theta_aburn <- theta[(burn_in + 1):num_steps] # samples after burn_in
+  
+  # require to decide proposal variance
+  acceptance_rate <- accepted_proposal/num_steps
+  
+    return(list(theta = theta, theta_aburn = theta_aburn, acceptance_rate = acceptance_rate))
+}
+
+#  using proposal variance = 0.1
+approach_i <- mh_alg_lnorm(num_steps = 50000, burn_in = 10000, proposal_variance = 0.25)
+
+#  using proposal variance = 2
+approach_ii <- mh_alg_lnorm(num_steps = 50000, burn_in = 10000, proposal_variance = 25)
+
+# Calculate the estimated mean for approach 1
+estimated_mean_i <- mean(approach_i$theta)
+
+# Calculate the estimated mean for approach 2
+estimated_mean_ii <- mean(approach_ii$theta)
+
+```
+From target distribution True mean is 0.5
+
+* Approach 1: Log-Normal distribution as a proposal with variance = 0.25 and $\theta_0 = 5$
+
+```{r include = TRUE}
+
+# Print the results
+cat("\tAcceptance Rate:", approach_i$acceptance_rate, 
+    "\n\tEstimated Mean:", estimated_mean_i, 
+    "\n\tDifference from True Mean:", abs(estimated_mean_i - true_mean))
+
+```
+
+
+
+\newpage
+* Approach 1: Log-Normal distribution as a proposal with variance = 0.25 and $\theta_0 = 5$
+
+```{r include=FALSE, echo=FALSE}
+
+mh_df1 <- data.frame(theta = approach_i$theta) %>% 
+  mutate(index = seq_along(1: nrow(.)),
+         burn_in = if_else(index <= 10000, "Burn in", "Accepted"))
+col_pal <- c("#003153", "red3")
+
+prop_plot1 <- ggplot() + 
+    geom_density(aes( x = rgamma(40000, 2, 4)), col = "#003153", lwd = 1) +
+    geom_density(aes( x = rlnorm(40000, 5, sqrt(0.25))), col = "red3", lwd = 1) + 
+    xlim(0, 50) +
+    
+    labs(title = expression(paste("Actual density ", Gamma(2, 4), " vs proposal ", Log-Normal(theta = 5, 0.25))),
+       x = expression(theta),
+       y =  "Density") +
+    theme_classic() + 
+    theme(
+      # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+      plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+      axis.title = element_text(size = 9, face="bold"),
+      legend.title = element_blank(),
+      legend.text = element_text(size = 9, face = "bold"), legend.position = c(.95, .9),
+      legend.background = element_rect(color = "black", fill= NA, linewidth = 1, linetype= "solid"),
+      panel.border = element_rect(color = "black", fill = NA, linewidth = 1)) +
+      scale_color_manual(values = col_pal)
+
+
+
+iteration_plot1 <- ggplot(data = mh_df1) + 
+    geom_line(aes(x = index, y = theta, color = burn_in)) +
+    labs(title = "Metropolis Hastings using Normal proposal with starting point 5",
+         x = "Iteration Number",
+         y = expression(theta)) +
+    theme_classic() + 
+    theme(
+      # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+      plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+      axis.title = element_text(size = 9, face="bold"),
+      legend.title = element_blank(),
+      legend.text = element_text(size = 9, face = "bold"), legend.position = c(.95, .9),
+      legend.background = element_rect(color = "black", fill= NA, size = 1, linetype= "solid"),
+      panel.border = element_rect(color = "black", fill = NA, size = 1)) +
+    scale_color_manual(values = col_pal)
+
+zoomed_plot1 <-  mh_df1 %>% 
+  filter(9950< index & index <10050) %>% 
+  ggplot(data = .) + 
+  geom_line(aes(x = index, y = theta, color = burn_in)) +
+  labs(title = "100 iteration Zoomed in ",
+       x = "Iteration Number",
+       y = expression(theta)) +
+  theme_classic() + 
+    theme(
+      # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+      plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+      axis.title = element_text(size = 9, face="bold"),
+      legend.title = element_blank(),
+      legend.text = element_text(size = 9, face = "bold"), legend.position = c(.95, .9),
+      legend.background = element_rect(color = "black", fill= NA, size = 1, linetype= "solid"),
+      panel.border = element_rect(color = "black", fill = NA, size = 1)) +
+    scale_color_manual(values = col_pal)
+  
+
+plot_mh1 <- ggplot(data = filter(mh_df1, burn_in == "Accepted")) +
+    geom_histogram(aes(x = theta, y= after_stat(density)), bins = 100, fill = "white", col = "#003153") + 
+    geom_density(aes( x = rgamma(40000, 2, 4)), col = "seagreen", lwd = 1) +
+    labs(title = expression(paste("Histogram of simulated sample using M-H algorithm from ", Gamma(2, 4)), " density"),
+         x = expression(theta),
+         y = "Density", color = "Blue") +
+    theme_classic() + 
+    theme(
+      # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+      plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+      axis.title = element_text(size = 9, face="bold"),
+      legend.title = element_blank(), legend.position = "top",
+      panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+    )
+
+
+library(ggpubr)
+
+# mh_it1<- ggarrange(iteration_plot1, zoomed_plot1,  
+#                              common.legend = TRUE, nrow = 2, ncol = 1)
+
+# pmh_it1<- annotate_figure( mh_it1, top = text_grob(expression(paste0("50000 iteration using M-H algorithm to sample from ", gamma(2,4))), color = "#0d233a", face = "bold", size = 14))
+
+mh_d1 <- ggarrange(iteration_plot1, zoomed_plot1, prop_plot1, plot_mh1,  
+                             common.legend = FALSE, nrow = 4, ncol = 1)
+
+# pmh_d1<- annotate_figure( mh_d1, top = text_grob("Simulated draws from gamma(2,4) using M-H algorithm", color = "#0d233a", face = "bold", size = 10))
+
+```
+
+```{r include=TRUE}
+
+print(mh_d1)
+
+
+```
+
+\newpage
+* Approach 2: Log Normal distribution as a proposal with variance = 25 and $\theta_0 = 5$
+
+```{r include=FALSE, echo=FALSE}
+mh_df2 <- data.frame(theta = approach_ii$theta) %>% 
+  mutate(index = seq_along(1: nrow(.)),
+         burn_in = if_else(index <= 10000, "Burn in", "Accepted"))
+
+prop_plot2 <- ggplot() + 
+  geom_density(aes( x = rgamma(40000, 2, 4)), col = "#003153", lwd = 1) +
+  geom_density(aes( x = rlnorm(40000, 5, sqrt(25))), col = "red3", lwd = 1) + 
+  xlim(0, 50) +
+  
+  labs(title = expression(paste("Actual density ", Gamma(2, 4), " vs proposal ", LogNormal(theta = 5, 25.0))),
+       x = expression(theta),
+       y =  "Density") +
+  theme_classic() + 
+  theme(
+    # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+    plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 9, face = "bold"), legend.position = c(.95, .9),
+    legend.background = element_rect(color = "black", fill= NA, size = 1, linetype= "solid"),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)) +
+  scale_color_manual(values = col_pal)
+
+
+
+iteration_plot2 <- ggplot(data = mh_df2) + 
+  geom_line(aes(x = index, y = theta, color = burn_in)) +
+  labs(title = "Metropolis Hastings using Log Normal proposal with starting point 5",
+       x = "Iteration Number",
+       y = expression(theta)) +
+  theme_classic() + 
+  theme(
+    # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+    plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 9, face = "bold"), legend.position = c(.95, .9),
+    legend.background = element_rect(color = "black", fill= NA, size = 1, linetype= "solid"),
+    panel.border = element_rect(color = "black", fill = NA, size = 1)) +
+  scale_color_manual(values = col_pal)
+
+zoomed_plot2 <-  mh_df2 %>% 
+  filter(9950< index & index <10050) %>% 
+  ggplot(data = .) + 
+  geom_line(aes(x = index, y = theta, color = burn_in)) +
+  labs(title = "100 iteration Zoomed in ",
+       x = "Iteration Number",
+       y = expression(theta)) +
+  theme_classic() + 
+  theme(
+    # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+    plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 9, face = "bold"), legend.position = "op",
+    legend.background = element_rect(color = "black", fill= NA, size = 1, linetype= "solid"),
+    panel.border = element_rect(color = "black", fill = NA, size = 1)) +
+  scale_color_manual(values = col_pal)
+
+
+plot_mh2 <- ggplot(data = filter(mh_df2, burn_in == "Accepted")) +
+  geom_histogram(aes(x = theta, y= after_stat(density)), bins = 100, fill = "white", col = "#003153") + 
+  geom_density(aes( x = rgamma(40000, 2, 4)), col = "seagreen", lwd = 1) +
+  labs(title = expression(paste("Histogram of simulated sample using M-H algorithm from ", Gamma(2, 4)), " density"),
+       x = expression(theta),
+       y = "Density", color = "Blue") +
+  theme_classic() + 
+  theme(
+    # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+    plot.title = element_text(size= 12, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_blank(), legend.position = "top",
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  )
+
+
+library(ggpubr)
+
+# mh_it2<- ggarrange(iteration_plot2, zoomed_plot2,  
+#                    common.legend = TRUE, nrow = 2, ncol = 1)
+# 
+# pmh_it2<- annotate_figure( mh_it2, top = text_grob(expression(paste0("50000 iteration using M-H algorithm to sample from ", gamma(2,4))), color = "#0d233a", face = "bold", size = 14))
+
+mh_d2 <- ggarrange(iteration_plot2, zoomed_plot2, prop_plot2, plot_mh2,  
+                   common.legend = FALSE, nrow = 4, ncol = 1)
+
+# pmh_d2<- annotate_figure( mh_d2, top = text_grob("Simulated draws from gamma(2,4) using M-H algorithm", color = "#0d233a", face = "bold", size = 10))
+```
+
+```{r include=TRUE}
+
+# print(mh_it2)
+print(mh_d2)
+
+```
+
+\newpage
+
+* Approach 2: Log Normal distribution as a proposal with variance = 25 and $\theta_0 = 5$
+```{r include = TRUE}
+
+
+cat("\tAcceptance Rate:", approach_ii$acceptance_rate, 
+    "\n\tEstimated Mean:", estimated_mean_ii, 
+    "\n\tDifference from True Mean:", abs(estimated_mean_ii - true_mean))
+```
+
+## solution 6:
+i) $$f(\theta) = c * \theta^{3}$$ to be a valid PDF, c need to be 4
+
+ii) Simulation using Inverse CDDF method:
+
+|     Since, $$F_\theta(t) = t^4$$
+|     Thus, $$\theta = F^{-1}(u) = u^{\frac{1}{4}}$$ 
+|     where, $$U \sim unif(0,1)$$
+
+```{r include=FALSE, echo=FALSE}
+# -------------- Question 6: Inverse CDF method for a expression:
+# i) c = 4
+
+# ii) inverse cdf of f(x) = 4 * x^3 is u ^(1/4)
+
+# Desired3 number of observations
+n <- 10000
+
+# Generate observations using inverse CDF method
+inverse_cdf <- function(n) {
+  
+  # Generate uniform random numbers
+  u <- runif(n) # default unif(0, 1)
+  
+  # Apply inverse CDF transformation
+  observations <- u^(1/4)
+  return(observations)
+}
+
+icdf_obs <- inverse_cdf(n)
+
+# hist(icdf_obs, probability = TRUE, col = "grey", 
+#      main=expression(paste("Histogram of simulated sample from ", f(x), "=", 4*x^3)))
+# curve(4 * x^3, 0,25, n=1000,col='red3',lwd=1,add=TRUE)
+
+theta = seq(0, 1, length.out = 10000)
+ftheta <- 4*theta^3
+inv_df <- data.frame(theta = theta, ftheta = ftheta, icdf_obs = icdf_obs)
+
+plot_icdf <- ggplot(data = inv_df) +
+  geom_histogram(aes(x = icdf_obs, y= after_stat(density)), bins = 100, fill = "white", col = "#003153") + 
+  geom_line(aes(x = theta, y = ftheta), col = "seagreen", lwd = 1) +
+  xlim(0, 1) +
+  labs(title = expression(paste("Histogram of simulated draws using inverse CDF method for ", f(x), " = ", 4*x^3)),
+         x = expression(theta),
+         y = "Density") +
+  theme_classic() + 
+  theme(
+    # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+    plot.title = element_text(size = 12, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_blank(), legend.position = "top",
+    panel.border = element_rect(color = "black", fill = NA, size = 1)
+    )
+```
+
+```{r include=TRUE, fig.width=12, fig.height=8}
+print(plot_icdf)
+```
+
+\newpage
+
+iii) Simulation usin Rejection sampling:
+```{r, include=FALSE, echo=FALSE}
+
+# iii) Rejection sampling
+
+# Desired3 the number of observations
+n <- 10000
+
+# Generate observations using rejection sampling
+rej_sampling <- function(n) {
+  
+  observations <- numeric(n)
+  accepted <- 0
+  rejected <- 0
+  
+  while (accepted < n) {
+    x <- runif(1)  # Generate a random number in the range [0, 1]
+    y <- runif(1)  # Generate a random number in the range [0, 1]
+    
+    if (y <  x^3) { # given PDF
+      observations[accepted + 1] <- x
+      accepted <- accepted + 1
+    } else {
+      rejected <- rejected + 1
+    }
+  }
+  
+  return(list(samples = observations, rejection_number = rejected))
+}
+
+# Generate observations using rejection sampling
+rej_samples <- rej_sampling(n)
+
+theta = seq(0,1, length.out = 10000)
+ftheta <- 4*theta^3
+rej_df <- data.frame(theta = theta, ftheta = ftheta, rej_sample = rej_samples$samples)
+
+plot_rej <- ggplot(data = rej_df) +
+    geom_histogram(aes(x = rej_sample, y= after_stat(density)), bins = 100, fill = "white", col = "#003153") + 
+    geom_line(aes(x = theta, y = ftheta), col = "seagreen", lwd = 1) +
+    xlim(0, 1) +
+    labs(title = expression(paste("Histogram of accepted draws using rejection sampling for ", f(x), " = ", 4*x^3)),
+         x = expression(theta),
+         y = "Density", color = "black") +
+    theme_classic() + 
+    theme(
+      # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+      plot.title = element_text(size= 14, face = "bold", color = 'black', hjust = 0.5),
+      axis.title = element_text(size = 9, face="bold"),
+      legend.title = element_blank(), legend.position = "top",
+      panel.border = element_rect(color = "black", fill = NA, size = 1)
+    )
+```
+
+```{r include=TRUE, fig.width=12, fig.height= 8}
+print(plot_rej)
+```
+
+```{r include=FALSE, echo=FALSE}
+
+# (iv) the average number of trials per accepted observation in Part (iii).
+average_trials<- (rej_samples$rejection_number + length(rej_samples$samples)) / length(rej_samples$samples)
+
+# v) Compare the two sets of observations generated in Part (ii) and Part (iii) in terms of
+# empirical mean, variance and 60% quantile.
+
+# Calculate empirical mean, variance, and 60% quantile for inverse CDF method
+mean_icdf <- mean(icdf_obs)
+variance_icdf <- var(icdf_obs)
+quantile_icdf <- quantile(icdf_obs, 0.6)
+
+# Calculate empirical mean, variance, and 60% quantile for rejection sampling
+mean_rejection_sampling <- mean(rej_samples$samples)
+variance_rejection_sampling <- var(rej_samples$samples)
+quantile_rejection_sampling <- quantile(rej_samples$samples, 0.6)
+```
+
+iv) Summary results from two sets of observations 
+
+* Using Inverse CDF:
+
+```{r include=TRUE}
+# Print the results
+cat("\tEmpirical Mean:", mean_icdf, 
+    "\n\tVariance:", variance_icdf, 
+    "\n\t60% Quantile:", quantile_icdf, "\n")
+```
+
+* Using Rejection sampling:
+
+```{r include = TRUE}
+
+cat("\tEmpirical Mean:", mean_rejection_sampling, 
+    "\n\tVariance:", variance_rejection_sampling, 
+    "\n\t60% Quantile:", quantile_rejection_sampling, "\n")
+```
+
+
+
+
+
