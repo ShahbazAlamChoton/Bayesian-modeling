@@ -1,0 +1,6 @@
+horizontal_coordinate vertical_coordinate response covariate_01 covariate_02
+0.75 0.88 0 1.63 1.96
+0.83 2.6 -3.71 3.43 27.75
+0.65 2.76 -3.68 3.41 31.2
+0.9 1.3 -0.72 2.21 6.06
+0.49 1.29 -0.86 1.79 5.96
