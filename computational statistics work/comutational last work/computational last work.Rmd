@@ -1,0 +1,451 @@
+---
+title: "Computational Statistics Final Solution"
+author: "Md. Shahbaz Alam | ID: 011015340"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+\newpage
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen=999)
+current_path <- rstudioapi::getSourceEditorContext()$path
+setwd(dirname(current_path))
+library(tidyverse)
+data_x <- 
+  read.table("data.txt",header = T) %>% 
+  pull()
+```
+
+**Solution to Q1 (a):**
+
+To apply Metropolis-Hastings algorithm, we will use a normal distribution as a proposal density, as the normal distribution is symmetric around its mean. Then we will to generate 100,000 samples of X, and visualize them.
+
+___Procedure:___
+
+\begin{align*}
+Density function:\\
+& f(x)=c*e^{cos(x)};~where ~-10\le x \le +10\\
+& N(\mu,c' =  1)\text{: Proposal Density}
+\\
+\\
+Algorithm:\\
+&\text{Step 0: Initialize first sample } \theta^{(j=0)}=\theta_0.\\
+\\
+Loop:\\
+&\text{Step 1: Draw a sample from normal proposal } \theta^*\sim N(\theta^{(j-1)},c' = 1)\\
+&\text{Step 2: Calculate the Ratio } R=\frac{f(\theta^*)}{f(\theta^{(j-1)})}\\
+&\text{Step 3: Generate a uniform random number } u\sim Unif(0,1)\\
+&\text{Step 4: If } R>u : set \theta^{(j)}=\theta^*\\
+&~~~~~~else~~~~:set \theta^{(j)}=\theta^{(j-1)}
+\end{align*}
+
+
+Here, for the initial value $\theta_0$, any random value within the range (-10, +10) can be chosen. In this case, we select 0. The standard deviation of the proposal density, denoted as $c'$, is set to 1.
+\newpage
+
+___R code:___
+  
+Here is the R code for generating 100,000 sample from $f(x)=c*e^{cos(x)};~where ~-10\le x \le +10$.  
+```{r}
+# Define the function
+fn_x <- function(x) {
+  if_else(-10 < x & x < 10, exp(cos(x)), 0)
+}
+
+# Initialize variables
+set.seed(729)
+vec_x <- numeric(10e4)
+
+# loop for MH
+for (i in 2:10e4) {
+  candidate <- rnorm(1, mean = vec_x[i - 1], sd = 1)
+  ratio <- fn_x(candidate) / fn_x(vec_x[i - 1])
+  if (ratio > runif(1)) {
+    vec_x[i] <- candidate
+  } else {
+    vec_x[i] <- vec_x[i - 1]
+    }
+  }
+```
+
+
+___Visualization:___
+
+```{r, echo = FALSE, include = TRUE, warning=FALSE, fig.height = 4, fig.align = "center"}
+library(ggpubr)
+library(ggrepel)
+trace_mh <-  ggplot() + 
+  geom_line(aes(x = 1:length(vec_x), y = vec_x), col = "black", linewidth = .5) +
+  labs(title = expression(paste("Traceplot of samples of X drawn using Metropolis-Hastings")),
+       x = "Iteration Number",
+       y = "Value") +
+  theme_classic() + 
+  theme(
+    # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+    plot.title = element_text(size = 9, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_blank(),
+    legend.text = element_blank(), legend.position = c(.95, .9),
+    legend.background = element_rect(color = "black", fill= NA, linewidth = 1, linetype= "solid"),
+    panel.border = element_rect(color = "black", fill = NA, size = 1))
+
+mh_hist <- ggplot() +
+  geom_histogram(aes(x = vec_x, y = after_stat(density)), bins = 30, fill = "white", col = "black") + 
+  geom_density(aes( x = vec_x), col = "#003153", lwd = 1) +
+  # geom_line(aes( x = runif(10000, 0, 2 * pi), y = pdf(runif(10000, 0, 2 * pi))), col = "seagreen", lwd = 1) +
+  labs(title = "Histogram with density curve of X",
+       x = "X",
+       y = "Density", color = "Blue") +
+  theme_classic() + 
+  theme(
+    # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+    plot.title = element_text(size= 9, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_blank(), legend.position = "top",
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  )
+
+plot_X <- ggpubr::annotate_figure(ggarrange(trace_mh, mh_hist,  
+                                          common.legend = T, nrow = 2, ncol = 1), 
+                                  top = text_grob("", face = "bold", size = 1)) 
+print(plot_X)
+
+```
+
+
+The histogram of the generated plot aligns closely with the density plot, indicating the correctness of the data generation method. Also, the trace plot shows convergence
+
+\newpage
+**Solution to Q1 (b):**
+
+___Density function:___
+\begin{align*}
+& f(x) = c \cdot e^{\cos(x)}; \text{ where } -10 \leq x \leq 10 \\
+& V(X) = E(X^2) - E(X) \text{ : Quantity of interest} \\
+& P \sim \text{Unif}(\text{min}=-10, \text{max}= 10) \text{ : Proposal density}
+\end{align*}
+
+___Algorithm:___
+\begin{align*}
+& \text{Loop begin: } for number of samples \\
+& \text{Step 1: Draw a sample } \theta^* \sim \text{Unif}(\text{min}=-10, \text{max}=+10) \\
+& \text{Step 2: Calculate weight } w_i = \frac{f(\theta^*)}{P(\theta^*)} \\
+& \text{Step 3: Store them in array: } W = [w_1, w_2, \dots, w_i] \text{ and } \Theta = [\theta^*_1, \theta^*_2, \dots, \theta^*_i] \\
+& \text{End of loop} \\
+\\
+& \text{Calculate:} \\
+& \widehat{E(X^2)} = \frac{\sum_{i=1}^N(\theta^*)^2 \cdot w_i}{\sum_{i=1}^N w_i} \\
+& \widehat{E(X)} = \frac{\sum_{i=1}^N \theta^* \cdot w_i}{\sum_{i=1}^N w_i} \\
+& \widehat{V(X)} = \widehat{E(X^2)} - \widehat{E(X)}^2 \\
+\end{align*}
+
+
+\newpage
+___R code:___
+
+The following R code estimates $E(X^2)$ using self-normalized importance sampling from a distribution where $X \sim f(x) = c \cdot e^{\sin(x)}$. For estimation we will use 100,000 samples.
+
+```{r}
+fn_x <- function(x) {
+  
+  if_else(-10 < x & x < 10, exp(cos(x)), 0)
+}
+
+# Initialize variables
+cand_w <- numeric(10e4)
+cand_x <- numeric(10e4)
+cand_xsq <- numeric(10e4)
+d_unif <- dunif(1, -10, 10)
+set.seed(729)
+
+# Perform the loop
+for (i in 1:10e4) {
+  
+  cand <- runif(1, -10, 10)
+  
+  cand_w[i] <- fn_x(cand) / d_unif
+  cand_x[i] <- cand * cand_w[i]
+  cand_xsq[i] <- cand^2 * cand_w[i] 
+  }
+```
+
+
+```{r echo=FALSE}
+tibble(
+  `from (b)`= sum(cand_xsq)/sum(cand_w)-(sum(cand_x)/sum(cand_w))^2,
+  `from (a)` = var(vec_x)
+) %>% 
+  mutate_all(~round(.x,digits = 3) %>% as.character()) %>% 
+  pander::pander()
+```
+
+The calculated variance obtained using those 100,000 generated samples earlier closely aligns with the variance estimated using these 100,000 self-normalized importance samples.
+
+\newpage
+**Solution to Q2:**
+
+
+
+```{r echo=FALSE}
+tibble(data_x) %>% 
+  ggplot(aes(data_x)) +
+  # geom_density(fill = "gray80",col = "gray10") +
+  geom_density(col = "#003153", lwd = 1) +
+    scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(limits = c(0,.1),expand = c(0,0)) +
+  labs(title = "Density Plot for the Mixture Data",
+       x = "X",
+       y = "Density", color = "Blue") +
+  theme_classic() + 
+  theme(
+    # plot.title = element_markdown(lineheight = .75, size= 9, face="bold", hjust = 0.5),
+    plot.title = element_text(size= 9, face = "bold", color = 'black', hjust = 0.5),
+    axis.title = element_text(size = 9, face="bold"),
+    legend.title = element_blank(), legend.position = "top",
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 1)
+  )
+
+```
+
+From the plot, it's evident that there are three distinct peaks, suggesting the presence of three different groups. The mean of these groups appear to be approximately 0, 6, and 15. Therefore, the initial estimates for the distribution are $\mu^T = [0~6~15]$ with $\sigma^T = [2~2~2]$.
+
+\newpage
+___R code (for initial step):___
+
+```{r}
+n = length(data_x)
+mu.init = c(0, 5, 15)
+sig.init = c(2, 2, 2)
+pi.init = c(0.2, 0.3, 0.5)
+
+# EM initialization
+step = 0
+eps = 10^(-6)
+L = 1
+
+dens.mat = matrix(c(dnorm(data_x, mu.init[1], sig.init[1]), 
+                    dnorm(data_x, mu.init[2], sig.init[2]),
+                    dnorm(data_x, mu.init[3], sig.init[3])),
+                  nrow = length(data_x), ncol = 3)
+
+post.prob.0 = pi.init[1]*dens.mat[, 1] / c(dens.mat %*% pi.init)
+post.prob.1 = pi.init[2]*dens.mat[, 2] / c(dens.mat %*% pi.init)
+post.prob.2 = pi.init[3]*dens.mat[, 3] / c(dens.mat %*% pi.init)
+
+
+mu.new = c(sum(post.prob.0*data_x)/sum(post.prob.0), 
+           sum(post.prob.1*data_x)/sum(post.prob.1), 
+           sum(post.prob.2*data_x)/sum(post.prob.2) 
+           )
+
+sig.new = sqrt(c(sum(post.prob.0*(data_x-mu.new[1])^2)/sum(post.prob.0),
+                 sum(post.prob.1*(data_x-mu.new[2])^2)/sum(post.prob.1),
+                 sum(post.prob.2*(data_x-mu.new[3])^2)/sum(post.prob.2)
+                 ))
+
+pi.new = c(mean(post.prob.0), mean(post.prob.1), mean(post.prob.2))
+```
+
+\newpage
+___R code (for EM algorithm):___
+```{r}
+while(L > eps) {
+  
+  mu.old = mu.new
+  sig.old = sig.new
+  pi.old = pi.new
+  
+  dens.mat = matrix(c(dnorm(data_x, mu.init[1], sig.init[1]), 
+                    dnorm(data_x, mu.init[2], sig.init[2]),
+                    dnorm(data_x, mu.init[3], sig.init[3])),
+                  nrow = length(data_x), ncol = 3)
+  
+  post.prob.0 = pi.init[1]*dens.mat[, 1] / c(dens.mat %*% pi.init)
+  post.prob.1 = pi.init[2]*dens.mat[, 2] / c(dens.mat %*% pi.init)
+  post.prob.2 = pi.init[3]*dens.mat[, 3] / c(dens.mat %*% pi.init)
+  
+  mu.new = c(sum(post.prob.0*data_x)/sum(post.prob.0), 
+           sum(post.prob.1*data_x)/sum(post.prob.1), 
+           sum(post.prob.2*data_x)/sum(post.prob.2) 
+           )
+  
+  sig.new = sqrt(c(sum(post.prob.0 * (data_x-mu.new[1])^2) / sum(post.prob.0),
+                 sum(post.prob.1 * (data_x-mu.new[2])^2) / sum(post.prob.1),
+                 sum(post.prob.2 * (data_x-mu.new[3])^2) / sum(post.prob.2)
+                 ))
+  
+  pi.new = c(mean(post.prob.0), mean(post.prob.1), mean(post.prob.2))
+  L = max(abs(mu.old - mu.new))
+  step = step + 1
+  
+  }
+```
+
+___Table for the estimated parameters:___
+```{r echo=FALSE}
+temp <- rbind(mu.new,sig.new,pi.new)
+colnames(temp) <- c("Dist 1","Dist 2","Dist 3")
+rownames(temp) <- c("$\\mu$","$\\sigma$","$P(Y) \\in Dist~i$")
+pander::pander(temp)
+```
+
+The table presents the estimated parameters. Assuming three categories, the proportions for each category are 22.8%, 32.9%, and 44.5%. The group means are -0.8023, 5.772, and 15.29, with corresponding standard deviations of 1.4549, 1.64, and 1.462.
+
+\newpage
+
+**Solution to Q3 (a):**
+
+___R code:___
+```{r results='hide'}
+# Initialize variables
+med_x <- numeric(1e4)
+mom_x <- numeric(1e4)
+
+# Perform the loop
+for (i in 1:1e4) {
+  x <- sample(x = data_x, size = length(data_x), replace = TRUE)
+  med_x[i] <- median(x)
+  mom_x[i] <- mean(x^4)
+  }
+
+# Calculate means
+mean_med_x <- mean(med_x)
+mean_mom_x <- mean(mom_x)
+
+# Output the results
+mean_med_x
+mean_mom_x
+```
+
+
+```{r echo=FALSE}
+tibble(Median = mean(med_x),Forth_Raw_Moment = mean(mom_x)) %>% 
+  mutate_all(~round(.x,digits = 3) %>% as.character()) %>% 
+  pander::pander()
+```
+
+\newpage
+**Solution to Q3 (b):**
+
+___R code:___
+```{r results='hide'}
+# Initialize variables
+med_x <- mom_x <- 0
+
+n <- length(data_x)
+for( i in 1:n){
+  med_x[i] <- median(data_x[-i])
+  mom_x[i] <- mean(data_x[-i]^4)
+}
+n*median(data_x) - (n-1)*mean(med_x)
+n*mean(data_x^4) - (n-1)*mean(mom_x)
+
+
+```
+
+
+```{r echo=FALSE}
+tibble(Median = n*median(data_x) - (n-1)*mean(med_x),
+       `Forth Raw Moment` = n*mean(data_x^4) - (n-1)*mean(mom_x)
+       ) %>% 
+  mutate_all(~round(.x,digits = 3) %>% as.character()) %>% 
+  pander::pander()
+```
+
+Both Median and the expected value of the Fourth Raw Moment $E(X^4)$ estimates using Bootstrap and leave-one-out Jackknife methods shows close similarity.
+
+\newpage
+**Solution to Q4:**
+
+$$
+f(\theta) = a.exp(-\theta^5 +5\theta-\sqrt{\theta})+c,~~0 < \theta < 2
+$$
+where a and c are positive constants. Use (a) Bisection and (b) Newton’s method to find the MLE of $\theta$.
+
+
+
+\begin{align*}
+L(x) &= a \cdot e^{-x^5 + 5x - \sqrt{x}} + c; \quad \text{where } a, c > 0 \\
+L(x) &\propto e^{-x^5 + 5x - \sqrt{x}} \\
+l(x) &= \log L(x) \\
+l(x) &\propto -x^5 + 5x - \sqrt{x} \\
+\\
+l'(x) &= -5x^4 + 5 - 0.5x^{-0.5} \\
+l''(x) &= -20x^3 + 0.25x^{-1.5} \\
+\end{align*}
+
+
+___R Code (1st and 2nd derivative):___
+```{r}
+l_theta <- function(x, first_der = TRUE) {
+  if_else(first_der, -5 * x^4 + 5 - .5 * x^(-1/2), -20 * x^3 + .25 * x^(-1.5))
+}
+```
+
+
+\newpage
+**part (a):**
+
+___R code:___
+```{r results='hide'}
+left_x <- 0.5
+right_x <- 1
+
+while (abs(left_x - right_x) > 1e-5) {
+  mid_x <- (left_x + right_x) / 2
+  if (l_theta(mid_x) * l_theta(right_x) > 0) {
+    right_x <- mid_x 
+    } else {
+    left_x <- mid_x
+    }
+  }
+
+result <- l_theta(mid_x, first_der = FALSE)
+result
+mid_x
+```
+
+Observing the negative value of the second derivative indicates that the estimate obtained through the bisection method represents the point at which the likelihood is maximized.
+
+```{r echo=FALSE}
+tibble(`MLE with Bisection` = mid_x,
+       `Second Derivative` = l_theta(mid_x,first_der = FALSE)
+       ) %>% 
+  mutate_all(~round(.x,digits = 4) %>% as.character()) %>% 
+  pander::pander()
+```
+
+
+**Part (b):**
+
+___R code:___
+```{r results='hide'}
+init_x <- 1
+
+while (TRUE) {
+  prev_x <- init_x
+  init_x <- init_x - l_theta(init_x) / l_theta(init_x, first_der = FALSE)
+  
+  if (abs(prev_x - init_x) < 1e-5) {
+    break
+    }
+  }
+
+init_x
+```
+
+
+```{r echo=FALSE}
+tibble(`MLE with NR` = init_x,
+       `Second Derivative` = l_theta(init_x, first_der = FALSE)) %>% 
+  mutate_all(~round(.x,digits = 4) %>% as.character()) %>% 
+  pander::pander()
+```
+
+The second derivative of estimated value is negative which suggests that the estimate obtained through Newton's method represents the point at which the likelihood is maximized.
+
+
+Thus, in both methods, the obtained maximum likelihood estimates (MLEs) are identical.
